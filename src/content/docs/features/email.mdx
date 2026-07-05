@@ -1,0 +1,42 @@
+---
+title: "邮件"
+---
+
+事务性邮件走 [Resend](https://resend.com)。模板文案来自 i18n 字典,所以邮件天然双语。本地
+不配 key 时不会真发,链接直接打到控制台。
+
+> **fork 后你要改哪:** 改文案在 i18n 字典的 `email` 段;改邮件外观在
+> `src/features/email/templates.ts`;换发件地址改 `EMAIL_FROM`。
+
+## 工作原理
+
+统一入口是 `sendEmail(input)`(`src/features/email/email.server.ts`):
+
+- 有 `RESEND_API_KEY` → 用 Resend 真发;**留空 → 降级到 dev transport**,把邮件正文/链接
+  `console.log` 到终端(`src/features/email/dev-transport.ts`),本地绝不误发。
+- 发件人取 `EMAIL_FROM`,缺省为 `FlareStarter <onboarding@resend.dev>`。
+- 正文由 `renderEmail`(`templates.ts`)渲染:根据 `locale` 从 i18n 字典 `dict.email` 取
+  标题/正文/按钮文案,套进一个内联样式的 HTML 骨架,同时产出纯文本版。
+
+## 内置模板
+
+`SendEmailInput` 的 `template` 目前有三种:
+
+| 模板 | 何时发 |
+|------|--------|
+| `verify-email` | 注册后验证邮箱(见 [认证](/docs/features/auth)) |
+| `reset-password` | 用户请求重置密码 |
+| `pro-activated` | 计费:Pro 开通(见 [计费](/docs/features/billing) 的事件钩子) |
+
+## 常见改动
+
+- **改文案**:编辑 `src/features/i18n/dictionaries/en.ts` 和 `zh.ts` 的 `email` 段
+  (两个字典结构必须一致)。
+- **加一种邮件**:在 `SendEmailInput['template']` 加类型 → 在两个字典 `email` 段加对应
+  文案键 → 在 `renderEmail` 的分支里接上。
+- **换邮件外观**:改 `templates.ts` 里的 HTML 骨架(注意所有插值都要经 `esc()` 转义)。
+
+<Callout type="info">
+本地调试验证/重置流程,不必配 Resend —— 跑 `pnpm dev`,在终端里找 `[dev-email]`
+开头的行,把里面的链接复制到浏览器即可。
+</Callout>

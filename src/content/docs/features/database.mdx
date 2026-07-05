@@ -1,0 +1,92 @@
+---
+title: 数据库操作
+description: 掌握使用 Drizzle ORM 和 Cloudflare D1 进行数据库增删改查的基础。
+---
+
+FlareStarter 默认采用 **Cloudflare D1** (基于 SQLite) 作为关系型数据库，并使用 **Drizzle ORM** 作为数据库交互层。
+
+## 目录与文件
+
+所有与数据库直接相关的核心文件均在 `src/db/` 下，但业务特定的 Schema 建议放在各自的 `src/features/*` 目录中。
+
+<Files>
+  <Folder name="src/db" defaultOpen>
+    <File name="client.ts - 实例化 Drizzle 客户端并注入环境 D1" />
+    <File name="schema.ts - 聚合所有业务 Schema 并对外导出" />
+    <Folder name="tables">
+      <File name="users.schema.ts - 基础的用户表" />
+    </Folder>
+  </Folder>
+</Files>
+
+## 增加新表
+
+当你需要增加一张业务表时（例如 `posts`），按照以下规范操作：
+
+<Steps>
+<Step>
+### 创建 Schema
+在 `src/features/posts/posts.schema.ts` 中定义你的表：
+```typescript
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+import { users } from '@/db/tables/users.schema'
+
+export const posts = sqliteTable('posts', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  content: text('content'),
+  authorId: text('author_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .$defaultFn(() => new Date()),
+})
+```
+</Step>
+
+<Step>
+### 注册到聚合 Schema
+打开 `src/db/schema.ts`，将新表导出：
+```typescript
+// src/db/schema.ts
+export * from './tables/users.schema'
+// 导入并重新导出你的新表
+export * from '@/features/posts/posts.schema'
+```
+这样不仅能确保 Drizzle Kit 在生成 migration 时能扫描到它，也方便全局进行关系查询 (Relational Queries)。
+</Step>
+
+<Step>
+### 生成并应用 Migration
+运行以下命令生成 SQL 迁移脚本并应用到本地的 D1 数据库：
+```bash
+pnpm db:generate
+pnpm db:migrate:local
+```
+如果要发布到线上，则运行 `pnpm db:migrate:prod`（对生产库 `flarestarter-db-prod` 应用迁移；staging 用 `pnpm db:migrate:staging`）。
+</Step>
+</Steps>
+
+## 服务端查询范例
+
+只能在服务端文件（如 `*.server.ts` 或 Server Functions）中访问数据库。
+
+```typescript
+// src/features/posts/posts.server.ts
+import { createServerFn } from '@tanstack/react-start'
+import { env } from '@/lib/env'
+import { createDb } from '@/db/client'
+import { posts } from './posts.schema'
+import { eq } from 'drizzle-orm'
+
+export const getPost = createServerFn({ method: 'GET' })
+  .validator((z) => z.object({ id: z.string() }))
+  .handler(async ({ data }) => {
+    // 实例化数据库客户端
+    const db = createDb(env.DB)
+    
+    // 查询单条记录
+    const result = await db.select().from(posts).where(eq(posts.id, data.id)).get()
+    return result
+  })
+```

@@ -1,0 +1,10 @@
+---
+title: "基础 Admin（运营后台）"
+---
+
+- **管理员**由 `ADMIN_EMAILS`（逗号分隔的邮箱）决定：这些邮箱注册/登录即获 `admin` 角色（databaseHook），`requireAdmin` 也以 `ADMIN_EMAILS` 为兜底权威。
+- **入口**：`/admin`（默认语言）/ `/zh/admin`。普通用户访问返回 **404**（不泄露后台存在）。
+- **功能**：用户列表 + 搜索/分页、基础统计（注册数 / 活跃用户 / 订阅概览）、禁用/解禁（被禁用户无法登录）、登录为用户（impersonation，顶部横幅可安全退出）。
+- **配置**：本地在 `.dev.vars` 设 `ADMIN_EMAILS`（dev 另种子一个 admin）；生产 `npx wrangler secret put ADMIN_EMAILS --env production`。
+- 仅 `user_id` 维度，零 tenant；多租户 super admin 属商业版。
+- 基于 Better-Auth admin 插件实现。

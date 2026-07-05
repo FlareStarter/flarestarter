@@ -1,0 +1,31 @@
+---
+title: "落地页文案"
+---
+
+改首页的文案和板块。**文案在 i18n 字典,布局在 marketing 组件** —— 两者分离,改字不碰代码。
+
+> **fork 后你要改哪:** 改文字改字典;增删/重排板块改 `src/components/marketing/` 与首页路由。
+
+## 改文案
+
+落地页所有可见文字都在 i18n 字典里(`src/features/i18n/dictionaries/en.ts` 和 `zh.ts`),
+键名如 `heroTitlePre` / `heroTitleHl` / `heroSubtitle` / `feature1Title` / `feature1Body` /
+`heroCtaPrimary` 等。组件通过 `useTranslation` 读取,所以**只改字典就能改文案**。
+
+<Callout type="warn">
+`en.ts` 与 `zh.ts` 结构必须一致(`Dict` 类型会在编译期强制补全所有键)。加/改文案时**两个
+字典都要动**,否则 `pnpm typecheck` 会报错。
+</Callout>
+
+## 改板块
+
+板块组件在 `src/components/marketing/`:`hero`、`features`、`feature-grid`、
+`agent-section`、`tech-strip`、`cta`、`footer`、`site-nav` 等。首页路由把它们组装起来 ——
+增删或重排板块就编辑这里。
+
+## 常见改动
+
+- **改标语/副标题**:动字典的 `heroTitle*` / `heroSubtitle`。
+- **改功能卡片**:动 `feature{N}Title/Body/Metric` 系列键。
+- **加一个新板块**:在 `marketing/` 新建组件、把需要的文案键加进两个字典、再在首页路由里
+  插入该组件。

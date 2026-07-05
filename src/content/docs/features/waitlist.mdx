@@ -1,0 +1,41 @@
+---
+title: "Waitlist(候补名单)"
+---
+
+上线前收集邮箱的候补名单:落库到 D1、可选同步到 Resend audience、后台可导出 CSV、自带
+Turnstile bot 防护。
+
+> **fork 后你要改哪:** 开箱即用。想把报名同步到邮件列表就填 `RESEND_AUDIENCE_ID`;表单样式
+> 改 `src/features/waitlist/components/`。
+
+## 工作原理
+
+报名走 `joinWaitlist` server fn(`src/features/waitlist/waitlist.actions.ts`),依次:
+
+1. **校验 Turnstile** token(设了 `TURNSTILE_SECRET_KEY` 才校验;否则跳过)。
+2. **规范化 + 校验邮箱**(`email.ts`)。
+3. **落库 D1**:`upsertWaitlist`(`upsert.ts`)按邮箱 upsert,返回 `added` / `already`。
+4. **同步 audience**(best-effort):`addContact`(`src/features/audience/audience.ts`)把邮箱
+   写入 Resend audience;**失败只记日志,不影响报名成功**。
+
+表单组件:`waitlist-form.tsx` / `waitlist-dialog.tsx`,已用在落地页 footer 和 `/waitlist`
+路由。来源标记(`source`)由 `clampSource` 收敛,便于区分报名入口。
+
+## audience 同步与 CSV 导出
+
+- **同步到 Resend**:需同时设 `RESEND_API_KEY` + `RESEND_AUDIENCE_ID`。缺任一 →
+  `addContact` 返回 `skipped`(报名仍进 D1,只是不同步)。这套 `addContact` 也为将来的
+  newsletter 复用。
+- **导出**:管理员可在 `/admin/waitlist` 查看,并经 `/admin/waitlist.csv`
+  (`src/routes/admin/waitlist[.]csv.ts`)导出 CSV。仅管理员可访问(见
+  [基础 Admin](/docs/features/admin))。
+
+<Callout type="info">
+`RESEND_AUDIENCE_ID` 留空完全没问题 —— 报名照常存进 D1,你随时能从后台导出 CSV。同步只是
+锦上添花。
+</Callout>
+
+## 常见改动
+
+- **多个报名入口分别统计**:调用时传不同的 `source`,再在 `clampSource` 的白名单里登记。
+- **关掉验证码**:不设 `TURNSTILE_SECRET_KEY` 即跳过校验(不建议线上关)。

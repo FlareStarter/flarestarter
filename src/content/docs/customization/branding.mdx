@@ -1,0 +1,38 @@
+---
+title: "品牌与元数据"
+---
+
+把「FlareStarter」这个名字、标题、社交预览图和 logo 换成你自己的产品。
+
+> **fork 后你要改哪:** 站名在 i18n 字典;默认标题/描述在 `__root.tsx`;OG 预览图和 logo 在
+> `public/`;各页 canonical/OG 的 origin 由 `BETTER_AUTH_URL` 决定。
+
+## 站名
+
+站内显示的产品名来自 i18n 字典的 `common.appName`(`src/features/i18n/dictionaries/en.ts`
+和 `zh.ts`)。
+
+<Callout type="warn">
+`en.ts` 与 `zh.ts` 结构必须完全一致(`zh` 的类型是 `Dict = typeof en`)。改名时**两个字典
+都要改**。另外字典里还有几处硬编码了 FlareStarter(如 `welcomeSub`、登录/后台副标题、法务
+占位页),一并替换。
+</Callout>
+
+## 页面标题与描述
+
+- **全站默认** `<title>` / `og:title` / description 在 `src/routes/__root.tsx` 的 `head()`
+  里,改成你的产品。
+- **按页** 的 canonical + hreflang + OG 由 `localeHead`(`src/features/seo/seo.ts`)统一产出,
+  各路由的 loader 传入自己的 `title` / `description`。
+
+## 社交预览图与 logo
+
+- OG 预览图固定取 `${origin}/logo512.png`(见 `seo.ts` 的 `og:image`)。换图直接替换
+  `public/logo512.png`。
+- 一并替换 `public/logo192.png`、`public/favicon.ico`,并更新 `public/manifest.json` 里的
+  名称与图标。
+
+<Callout type="info">
+`og:url` / canonical 的域名来自 `BETTER_AUTH_URL`。生产务必设成真实域名,否则社交分享和 SEO
+链接会指错(见 [部署](/docs/getting-started/deploy) 与 [国际化与 SEO](/docs/features/i18n))。
+</Callout>

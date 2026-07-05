@@ -1,0 +1,56 @@
+---
+title: FlareStarter 文档
+description: FlareStarter —— TanStack Start + Cloudflare Workers 边缘原生 SaaS 起手模板的文档。
+---
+
+欢迎来到 **FlareStarter** 文档 —— 基于 **TanStack Start + Cloudflare Workers** 的
+全栈、边缘原生 SaaS 起手模板。Clone 下来,在它之上构建你自己的产品。
+
+这套文档本身也是模板的一部分:它内嵌在同一个 app 里,是 `/docs` 路由下的一个
+[Fumadocs](https://fumadocs.dev) 站点,内容源文件在 `src/content/docs/`,随主站
+**同一个 Worker** 一起部署(并非独立 app、也没有独立 Worker)。你可以把这些内容整体
+替换成自己产品的文档,也可以继续用它记录你的 fork。想改文档本身,见
+[编写文档](/docs/customization/authoring)。
+
+## 入门
+
+第一次拿到代码，按这个顺序走：
+
+- [本地安装与启动](/docs/getting-started/install) —— clone、配置、本地跑起来
+- [环境变量](/docs/getting-started/environment) —— .dev.vars 必填项指引
+- [项目架构](/docs/getting-started/codebase) —— TanStack Start + Features 结构解析
+- [部署到 Cloudflare](/docs/getting-started/deploy) —— 建资源、配 secrets、上线
+- [迁移与种子](/docs/getting-started/migrations) —— D1 数据库迁移流程
+
+
+## 功能与集成
+
+构建产品时天天会碰的功能切片：
+
+- [数据库](/docs/features/database) —— D1 与 Drizzle ORM 的增删改查
+- [认证](/docs/features/auth) —— better-auth、社交登录、会话
+- [计费与订阅](/docs/features/billing) —— Stripe 订阅/终身买断、webhook、扣款失败处理
+- [邮件](/docs/features/email) —— Resend 发信、本地控制台兜底、模板
+- [Storage (R2)](/docs/features/storage) —— 对象存储 / 文件上传
+- [Waitlist(候补名单)](/docs/features/waitlist) —— 收集邮箱、CSV 导出、bot 防护
+- [基础 Admin](/docs/features/admin) —— 运营后台与角色
+- [国际化与 SEO](/docs/features/i18n) —— 语言路由与 SEO origin
+- [定时任务](/docs/features/cronjobs) —— 自动执行清理和通知
+- [UI 组件](/docs/features/ui-components) —— 基础组件库与 Tailwind v4
+
+## 平台与运维
+
+部署到 Cloudflare 之后才需要关心的平台适配与生产加固:
+
+- [Cloudflare 踩坑](/docs/platform/cf-gotchas) —— workerd 已知坑与 Cron
+- [安全加固](/docs/platform/security) —— 响应头、环境校验、限流、Turnstile
+- [可观测性](/docs/platform/observability) —— Cloudflare Web Analytics + Sentry
+
+## 定制
+
+把模板改成你自己的产品:
+
+- [品牌与元数据](/docs/customization/branding) —— 站名、SEO title、OG、logo
+- [主题](/docs/customization/theme) —— 明暗切换与配色
+- [落地页文案](/docs/customization/landing) —— 改首页文案与板块
+- [编写文档](/docs/customization/authoring) —— 改/加这些文档页

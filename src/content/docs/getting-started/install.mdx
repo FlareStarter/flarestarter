@@ -1,0 +1,108 @@
+---
+title: "本地安装与启动"
+---
+
+这一页带你从零把 FlareStarter 在本机跑起来。**本地开发不需要任何付费账号、也不需要
+Cloudflare 账号** —— 所有外部服务(邮件、支付、验证码……)留空即自动关闭,应用照常运行。
+
+## 前置准备
+
+开始前,本机需要装好:
+
+- **Node.js**(20 或更高版本)—— 运行代码的环境。到 [nodejs.org](https://nodejs.org)
+  下载 LTS 版安装即可。装好后终端里应该能跑通:
+  ```bash
+  node -v    # 输出应 ≥ v20
+  ```
+- **pnpm** —— 本项目使用的包管理器。Node 自带的 corepack 可以一键启用:
+  ```bash
+  corepack enable pnpm
+  pnpm -v     # 输出版本号即成功
+  ```
+  也可以用 `npm install -g pnpm` 全局安装,或参考 [pnpm.io/installation](https://pnpm.io/installation)。
+- **Git** —— 用来拉取代码。到 [git-scm.com](https://git-scm.com) 下载安装,验证:
+  ```bash
+  git --version
+  ```
+- 一个**终端**(macOS 的「终端」、Windows 的 PowerShell 均可)。
+
+<Callout type="info">
+不熟悉命令行也没关系 —— 下面每一步都是「复制一行、回车」。看到 `$` 或代码框,把里面的
+命令粘到终端执行即可。
+</Callout>
+
+## 1. 获取代码
+
+如果你打算基于它做自己的产品,推荐先在 GitHub 上 **Fork** 本仓库到你自己的账号,再
+clone 你的 fork;只是想本地试跑,直接 clone 原仓库也行:
+
+```bash
+git clone https://github.com/flarestarter/flarestarter.git my-app
+cd my-app
+```
+
+## 2. 安装依赖
+
+```bash
+pnpm install
+```
+
+第一次会拉取较多包,耐心等它跑完。
+
+## 3. 配置环境变量
+
+复制示例文件,得到你自己的本地配置 `.dev.vars`:
+
+```bash
+cp .dev.vars.example .dev.vars
+```
+
+打开 `.dev.vars`,**唯一必须填**的是 `BETTER_AUTH_SECRET`(登录会话的加密密钥,需 32 位
+以上随机串)。生成一个:
+
+```bash
+openssl rand -base64 32
+```
+
+把输出整段粘到 `.dev.vars` 里 `BETTER_AUTH_SECRET=` 的后面。
+
+<Callout type="info">
+其余变量**全部可选,留空即关闭对应功能**(优雅降级),本地开发完全够用。想启用时再按下表填:
+
+- **社交登录**:`GOOGLE_CLIENT_ID/SECRET`、`GITHUB_CLIENT_ID/SECRET` —— 留空则对应登录
+  按钮不显示,填入后自动出现。
+- **邮件发送**:`RESEND_API_KEY` 留空时,验证/重置密码邮件的链接会**直接打印到
+  `pnpm dev` 的控制台**(不真发),本地调试足够。详见 [邮件](/docs/features/email)。
+- **计费**:在 Stripe Dashboard(测试模式)建一个 Pro 产品 + 月/年两个 price,把 price
+  ID 填进 `STRIPE_PRICE_PRO_MONTHLY/YEARLY`,`STRIPE_SECRET_KEY` 填测试密钥
+  (`sk_test_…`)。本地转发 webhook:`stripe listen --forward-to
+  localhost:3000/api/webhooks/stripe`,把它打印的 `whsec_…` 填进
+  `STRIPE_WEBHOOK_SECRET`。详见 [计费](/docs/features/billing)。
+- **运营后台**:`ADMIN_EMAILS` 填入你的邮箱,用该邮箱注册即获管理员权限,可访问
+  `/admin`。详见 [基础 Admin](/docs/features/admin)。
+</Callout>
+
+## 4. 初始化本地数据库
+
+创建本地 D1 库并写入种子数据:
+
+```bash
+pnpm db:migrate:local && pnpm db:seed:local
+```
+
+(数据库工作流详见 [迁移与种子](/docs/getting-started/migrations)。)
+
+## 5. 启动
+
+```bash
+pnpm dev
+```
+
+浏览器打开 **http://localhost:3000** 就能看到应用。改代码会自动热更新。
+
+<Callout type="warn">
+首次 `pnpm install` 后第一次 `pnpm dev`,Vite 会因 lockfile 变化重新优化依赖,可能出现
+一次性内存峰值把进程 kill 掉 —— 重启 `pnpm dev` 即恢复正常。
+</Callout>
+
+跑起来之后,下一步通常是[部署到 Cloudflare](/docs/getting-started/deploy)。

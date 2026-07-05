@@ -1,0 +1,51 @@
+---
+title: "编写文档"
+---
+
+你正在读的这套文档也是模板的一部分,用 [Fumadocs](https://fumadocs.dev) 驱动。这一页讲怎么
+改、加、组织文档页,以及怎么整体换成你自己产品的文档。
+
+> **fork 后你要改哪:** 内容全在 `src/content/docs/`。改一页 = 编辑对应 `.mdx`;加一页 =
+> 新建 `.mdx` 并登记进所在分组的 `meta.json`。
+
+## 内容与结构
+
+- 文档源文件在 `src/content/docs/`,由 `source.config.ts` 的 `defineDocs` 收录。
+- 页面按**文件夹分组**:`getting-started/`、`features/`、`platform/`、`customization/`。
+- 每个文件夹有一个 `meta.json` 决定**分组标题**和**页内顺序**;根 `meta.json` 决定各分组在
+  侧栏的顺序。
+
+```json
+// 例:features/meta.json
+{ "title": "功能与集成", "pages": ["auth", "billing", "email"] }
+```
+
+## 加一页
+
+1. 在某个分组文件夹里新建 `xxx.mdx`,顶部写 frontmatter:
+   ```mdx
+   ---
+   title: "页面标题"
+   ---
+   ```
+2. 把文件名(不含扩展名)加进该文件夹的 `meta.json` 的 `pages` 数组(位置即侧栏顺序)。
+3. 保存即出现在侧栏,URL 为 `/docs/<分组>/xxx`。
+
+## 组件
+
+文档是 **`.mdx`**,可直接用 Fumadocs 的默认组件(在 `src/features/docs/mdx-components.tsx`
+注册),无需 import。例如本页用到的告警框:
+
+```mdx
+<Callout type="warn">部署前先建桶。</Callout>
+```
+
+<Callout type="warn">
+MDX 比普通 Markdown 严格:正文里裸露的 `<...>` 会被当成标签、`{...}` 会被当成表达式,导致
+编译失败。把它们放进反引号(`` `<userId>` ``)或转义即可。
+</Callout>
+
+## 换成你自己的文档
+
+直接编辑 / 替换 `src/content/docs/` 下的内容,再按需重排各 `meta.json`。文档随主站
+**同一个 Worker** 部署,无需单独发布(见 [文档首页](/docs) 的说明)。

@@ -1,0 +1,31 @@
+---
+title: "可观测性:分析与错误上报"
+---
+
+两项都是**可选**、用 env 控制、留空即关闭。
+
+## Cloudflare Web Analytics(`CF_ANALYTICS_TOKEN`)
+
+隐私友好、免费、零 cookie 的访问分析。
+
+- **怎么开**:Dashboard → Analytics & Logs → Web Analytics 建一个站点,拿到 beacon **token**,设进 `CF_ANALYTICS_TOKEN`。
+- **原理**:`getAnalyticsToken` server fn 把 token 交给根布局,`__root.tsx` 仅在 token 存在时注入 CF beacon 脚本(`src/features/analytics/`)。CSP 已放行 `static.cloudflareinsights.com`(脚本)与 `cloudflareinsights.com`(上报)。
+- **未配**:不注入 beacon,无任何分析。
+
+token 是公开值,放 `wrangler.jsonc` 的 `vars` 即可(不必当 secret)。
+
+## Sentry 错误上报(`SENTRY_DSN`)
+
+捕获 worker 端的**未处理异常 / promise rejection**(SSR、loader、server fn、API route)——也就是生产里你最看不见的那类错误。
+
+- **怎么开**:在 [sentry.io](https://sentry.io) 建项目,拿 **DSN**,设进 `SENTRY_DSN`(生产用 `wrangler secret put SENTRY_DSN`)。
+- **原理**:`src/worker.ts` 用 `@sentry/cloudflare` 的 `withSentry()` 包住 worker 入口。options 回调在**没有 DSN 时返回 `undefined`,Sentry 完全不初始化**(不是「初始化了但没 dsn」)。默认 `tracesSampleRate: 0`(仅错误、不采性能)、`sendDefaultPii: false`。
+- **未配**:Sentry 不初始化,零开销。
+
+### 范围与限制(诚实说明)
+
+- **仅服务端**。浏览器端错误**未捕获**——需要的话新建客户端 entry + `@sentry/react`(会增大客户端 bundle)。
+- **框架已处理的错误**(loader/render 报错走 `ErrorPage` 错误边界的那些)不会自动上报,因为它们没作为异常冒泡到 worker。需要的话在错误边界或对应位置手动 `Sentry.captureException`。
+- `withSentry` 自动捕获的是**真正未处理**的异常与 rejection。
+
+> 部署小坑:首次 `pnpm install` 后第一次 `pnpm dev`,Vite 因 lockfile 变化会重新优化依赖,可能出现一次性内存峰值导致进程被 kill——重启 `pnpm dev` 即正常。

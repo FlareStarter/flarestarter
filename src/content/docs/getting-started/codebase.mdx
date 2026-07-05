@@ -1,0 +1,53 @@
+---
+title: 项目架构
+description: 了解 FlareStarter 的目录结构与核心设计哲学。
+---
+
+FlareStarter 采用现代化的全栈架构设计，前端使用 **TanStack Start**（基于文件的路由），后端依赖 **Cloudflare Workers** 边缘节点，并使用垂直特性的项目结构。
+
+## 目录结构速览
+
+<Files>
+  <Folder name="src" defaultOpen>
+    <Folder name="components">
+      <File name="ui/ - Radix/Shadcn 基础组件" />
+      <File name="app/ - 业务相关的通用组件" />
+    </Folder>
+    <Folder name="content" defaultOpen>
+      <File name="docs/ - Fumadocs 文档源文件" />
+    </Folder>
+    <Folder name="db">
+      <File name="client.ts - D1 & Drizzle 客户端" />
+      <File name="schema.ts - 全局 Schema 聚合" />
+    </Folder>
+    <Folder name="features" defaultOpen>
+      <Folder name="auth - 认证模块" />
+      <Folder name="billing - 计费模块" />
+      <Folder name="..." />
+    </Folder>
+    <Folder name="routes" defaultOpen>
+      <Folder name="api/ - API 路由" />
+      <Folder name="{-$locale}/ - 页面路由" />
+      <File name="__root.tsx - 根路由组件" />
+    </Folder>
+  </Folder>
+</Files>
+
+## 设计哲学
+
+### 1. 垂直特性切片 (`src/features/*`)
+我们不推荐按照文件类型（如全部的 actions 放一个文件夹，全部的 components 放另一个）来组织代码，而是按照**业务功能 (Feature)** 来组织。
+比如 `src/features/billing/` 目录下会包含与计费相关的：
+- 数据库 Schema (`billing.schema.ts`)
+- 服务端操作 (`billing.server.ts`)
+- 前端组件 (`BillingDashboard.tsx`)
+
+这样修改计费逻辑时，你只需要在这个目录中工作，实现了高内聚低耦合。
+
+### 2. 文件路由 (`src/routes/*`)
+我们使用 **TanStack Router** 进行基于文件的路由映射。
+- `src/routes/api/*` 用于定义供外部调用的标准 RESTful API 接口。
+- 绝大多数页面被放置在 `{-$locale}/` 组内，以便开箱即用支持多语言。
+
+### 3. 环境隔离 (`@/lib/env`)
+所有环境变量的读取**必须**通过 `@/lib/env` 进行。我们通过 Zod 校验了环境变量的完整性，这样在部署出错时能第一时间获得报错，而不是在运行时崩溃。

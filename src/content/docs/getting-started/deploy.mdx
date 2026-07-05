@@ -1,0 +1,150 @@
+---
+title: "部署到 Cloudflare"
+---
+
+把应用部署到 Cloudflare 的全球边缘网络。整套栈(Workers + D1 + KV + R2)在 Cloudflare
+**免费额度内**就能跑起来。
+
+## 前置准备
+
+- 一个 **Cloudflare 账号**(免费):[dash.cloudflare.com](https://dash.cloudflare.com)
+  注册。
+- 已在本地跑通(见 [本地安装与启动](/docs/getting-started/install))。
+- 本项目自带 `wrangler`(Cloudflare 的命令行工具),用 `npx wrangler` 调用,无需单独安装。
+
+## 1. 登录 Cloudflare
+
+```bash
+npx wrangler login
+```
+
+会打开浏览器让你授权,点同意即可。
+
+## 2. 创建线上资源
+
+应用要用到三种存储资源,逐条创建:
+
+```bash
+npx wrangler d1 create flarestarter-db-prod          # D1 数据库
+npx wrangler kv namespace create CACHE               # KV(会话/缓存)
+npx wrangler r2 bucket create flarestarter-files-prod # R2 对象存储(头像上传)
+```
+
+<Callout type="info">
+前两条命令执行后会**在终端打印出 `database_id` 和 KV 的 `id`** —— 记下来,下一步要用。
+R2 的绑定已在 `wrangler.jsonc` 配好,无需记 id(详见 [Storage](/docs/features/storage))。
+</Callout>
+
+## 3. 回填资源 id
+
+打开 `wrangler.jsonc`,找到 `env.production`,把上一步打印的 `database_id` 与 KV `id`
+填进去(替换掉占位的全 0 值)。
+
+## 4. 配置生产环境 Secrets
+
+密钥类配置**不进代码库**,用 `wrangler secret put` 单独写入(命令执行后会提示你粘贴值):
+
+```bash
+# 必填 —— 会话加密密钥(openssl rand -base64 32 生成)
+npx wrangler secret put BETTER_AUTH_SECRET --env production
+# 邮件发送(Resend)
+npx wrangler secret put RESEND_API_KEY --env production
+# 社交登录(可选,留空则按钮不显示)
+npx wrangler secret put GOOGLE_CLIENT_ID --env production
+npx wrangler secret put GOOGLE_CLIENT_SECRET --env production
+npx wrangler secret put GITHUB_CLIENT_ID --env production
+npx wrangler secret put GITHUB_CLIENT_SECRET --env production
+# Stripe 计费
+npx wrangler secret put STRIPE_SECRET_KEY --env production
+npx wrangler secret put STRIPE_WEBHOOK_SECRET --env production
+# 可选:Turnstile bot 防护(两个 key 都设才生效;见 安全加固)
+npx wrangler secret put TURNSTILE_SECRET_KEY --env production
+# 可选:Sentry 错误上报(见 可观测性)
+npx wrangler secret put SENTRY_DSN --env production
+```
+
+<Callout type="info">
+不想逐条敲?`wrangler secret bulk` 支持一次性上传:把密钥写进一个 `KEY=VALUE` 文件
+(和 `.dev.vars` 同格式,**务必 gitignore**,别复用带 localhost 的 `.dev.vars`),然后
+`npx wrangler secret bulk .prod.vars --env production`(单次最多 100 个)。
+</Callout>
+
+**公开值**(非机密)则直接写进 `wrangler.jsonc` 的 `env.production.vars`,留空即关闭对应功能:
+
+- `TURNSTILE_SITE_KEY`(Turnstile 站点 key)
+- `CF_ANALYTICS_TOKEN`(Web Analytics beacon token)
+- `STRIPE_PRICE_PRO_MONTHLY/YEARLY`(线上 price ID;写 `vars` 或 `secret put` 均可)
+- `BETTER_AUTH_URL` —— 设为你的线上域名,例如 `https://flarestarter.example.com`。首次只发
+  workers.dev 时还没有自定义域,可先填可预测的 `https://flarestarter-production.<你的子域>.workers.dev`,
+  之后绑定自定义域再改回来。
+
+<Callout type="warn">
+`BETTER_AUTH_URL` **同时决定 canonical URL 与 sitemap origin**,必须设成真实域名,否则
+SEO 输出的链接会错(详见 [国际化与 SEO](/docs/features/i18n))。
+</Callout>
+
+**Stripe webhook**:在 Stripe Dashboard 为线上域名创建 endpoint
+`https://<域名>/api/webhooks/stripe`,订阅事件 `customer.subscription.created`、
+`customer.subscription.updated`、`customer.subscription.deleted`、
+`checkout.session.completed`、`checkout.session.async_payment_succeeded`、
+`charge.refunded`、`invoice.payment_failed`(启用赞助墙再加 `invoice.paid`、
+`charge.dispute.created`);创建后把签名密钥(`whsec_…`)用上面的
+`STRIPE_WEBHOOK_SECRET` 命令写入。
+
+**运营后台**:`npx wrangler secret put ADMIN_EMAILS --env production`(逗号分隔的管理员
+邮箱);详见 [基础 Admin](/docs/features/admin)。
+
+## 5. 对生产库应用迁移
+
+```bash
+pnpm db:migrate:prod
+# 等价于:npx wrangler d1 migrations apply flarestarter-db-prod --env production --remote
+```
+
+这会在线上库建好所有表(含 auth 表)。
+
+<Callout type="warn">
+**必须先迁移、再部署**(第 6 步)。worker 有启动期环境校验,且业务代码一上线就会查表——
+表没建好会直接报错。注意别用 `pnpm db:migrate:remote`(旧脚本已移除),它指向的是默认库
+`flarestarter-db` 而非生产库。
+</Callout>
+
+## 6. 构建并部署
+
+<Callout type="warn">
+Cloudflare 环境是在 **build 时**经 `CLOUDFLARE_ENV` 选定的(@cloudflare/vite-plugin 会把
+对应环境的 bindings 烘焙进 `dist/server/wrangler.json`)。所以**不要用
+`wrangler deploy --env`**,而是先按环境 build、再 deploy:
+</Callout>
+
+```bash
+pnpm deploy:prod
+# 等价于:CLOUDFLARE_ENV=production pnpm build && npx wrangler deploy
+```
+
+<Callout type="warn">
+别直接 `npx wrangler deploy`(不先 `CLOUDFLARE_ENV=production` build):那样发出去的是**顶层
+默认环境**(worker 名 `flarestarter`、全 0 占位绑定),不是生产。环境是在 build 时烘进
+`dist` 的,deploy 只是把 build 产物推上去。用 `pnpm deploy:prod` / `pnpm deploy:staging` 即可。
+</Callout>
+
+部署完成后 wrangler 会打印 `https://<name>.<subdomain>.workers.dev`。首次需要在
+Dashboard 启用 workers.dev 子域,DNS 传播可能要等 ~1 分钟。
+
+## 环境与 CI/CD
+
+环境分三层:local(Miniflare/workerd)/ staging / production。CI/CD 在
+`.github/workflows/`:`ci.yml` 跑 lint + typecheck + test + build;`deploy.yml` 在
+push 到 main 时以 `CLOUDFLARE_ENV=production` build 后自动部署 —— 需在仓库 Secrets 配好
+`CLOUDFLARE_API_TOKEN` 与 `CLOUDFLARE_ACCOUNT_ID`(未配则整个部署优雅跳过,不留红叉)。
+
+<Callout type="warn">
+CI 只做 **build + deploy,不跑数据库迁移**。所以有 schema 变更时,push 之前(或部署生效前)
+要**手动** `pnpm db:migrate:prod`,否则新代码上线会撞上缺表。Secret 同理——CI 不设 secret,
+用 `wrangler secret put` / `secret bulk` 提前配好。
+</Callout>
+
+<Callout type="info">
+`wrangler.jsonc` 三处 `r2_buckets`(top-level / staging / production)都已启用,所以
+`wrangler deploy` 前务必确认对应的 bucket 已创建(见第 2 步),否则部署校验会失败。
+</Callout>

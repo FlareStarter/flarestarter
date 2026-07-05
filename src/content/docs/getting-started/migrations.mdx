@@ -1,0 +1,53 @@
+---
+title: "迁移与种子"
+---
+
+数据库结构(schema)用 [Drizzle](https://orm.drizzle.team) 定义,通过 **D1 迁移**应用到
+数据库。这一页讲日常会用到的几条命令,以及背后的取舍。
+
+## 常用命令
+
+改完 schema(在 `src/db/` 里)后:
+
+1. **生成迁移 SQL** —— Drizzle 对比 schema 变化,生成一份 `.sql` 到 `drizzle/`:
+   ```bash
+   pnpm db:generate
+   ```
+2. **应用到本地库**:
+   ```bash
+   pnpm db:migrate:local
+   ```
+   应用到远程(生产)库 —— 指向 `flarestarter-db-prod` 并带 `--env production`:
+   ```bash
+   pnpm db:migrate:prod
+   ```
+   (staging 环境用 `pnpm db:migrate:staging`。)
+3. **写入种子数据(仅本地)** —— 执行 `scripts/seed.sql`:
+   ```bash
+   pnpm db:seed:local
+   ```
+4. **重置本地库(开发态回滚)** —— 删本地库 → 重新迁移 → 重新种子:
+   ```bash
+   pnpm db:reset:local
+   ```
+
+<Callout type="info">
+新增一张表时,除了改 schema,记得把它注册进 `src/db/schema.ts`(barrel 文件),再跑
+`db:generate`。
+</Callout>
+
+## 为什么种子放 `scripts/` 而不是 `drizzle/`
+
+`drizzle/` 是 `migrations_dir` —— 里面的 `.sql` 会被 `wrangler d1 migrations apply`
+当作迁移在**远程**执行。种子是开发用的假数据,必须放在 migrations_dir **之外**
+(`scripts/seed.sql`),用 `wrangler d1 execute --file` 单独跑,才不会污染生产库。
+
+## 回滚策略
+
+<Callout type="warn">
+D1 **没有**原生的 down(向下)迁移,不能一键回退。
+</Callout>
+
+- **本地/开发**:直接用 `db:reset:local` 重置。
+- **生产**:采用「**前向修复**」—— 写一条新迁移去撤销上一条的变更(要破坏性删列时,
+  先双写 / 灰度过渡)。因此 schema 应尽早稳定。(完整的迁移工具包是商业版核心,见架构蓝图。)

@@ -1,0 +1,52 @@
+---
+title: "认证"
+---
+
+基于 [better-auth](https://better-auth.com) 的认证:邮箱密码(带邮箱验证)、Google/GitHub
+社交登录、会话、角色。全部在开源版范围内。
+
+> **fork 后你要改哪:** 通常**不用改接线**。启用社交登录只需填对应 env;调整谁是管理员改
+> `ADMIN_EMAILS`;给 user 加字段改 `auth.schema.ts`。
+
+## 工作原理
+
+`createAuth(env, db)`(`src/features/auth/auth.server.ts`)是唯一的服务端入口,按请求创建
+(D1 绑定不可跨请求复用,见 [Cloudflare 踩坑](/docs/platform/cf-gotchas)):
+
+- **邮箱密码**:`emailAndPassword.enabled`,且 `requireEmailVerification: true` —— 注册后
+  必须点验证邮件里的链接才能登录。验证 / 重置密码邮件经 [邮件](/docs/features/email) 发送。
+- **社交登录**:`socialProviders` 只在对应 env 成对存在时启用(`GOOGLE_CLIENT_ID/SECRET`、
+  `GITHUB_CLIENT_ID/SECRET`)。留空 → 该按钮不显示(优雅降级)。
+- **角色**:`admin()` 插件 + 一个 `databaseHook` —— 注册时若邮箱命中 `ADMIN_EMAILS` 则写入
+  `admin` 角色,否则 `user`。详见 [基础 Admin](/docs/features/admin)。
+- **Bot 防护**:`captcha`(Cloudflare Turnstile)插件仅在设了 `TURNSTILE_SECRET_KEY` 时挂载。
+- **限流**:认证端点按 IP 限流,存储用 D1(非内存)、取 `cf-connecting-ip` 为可信 IP。
+  详见 [安全加固](/docs/platform/security)。
+
+## 客户端
+
+`authClient`(`src/features/auth/auth.client.ts`)导出常用方法:
+
+```ts
+authClient.signIn.email({ email, password })
+authClient.signIn.social({ provider: 'google' })
+authClient.signUp.email({ email, password, name })
+```
+
+<Callout type="info">
+命名坑:找回密码是 `requestPasswordReset`(对应 better-auth 的 `/request-password-reset`
+路由),**不是** `forgetPassword`。`signIn` / `signUp` 是嵌套对象,不是扁平函数。
+</Callout>
+
+## 常见改动
+
+- **开启 Google / GitHub 登录**:去对应平台建 OAuth 应用,把 client id/secret 填进 env
+  (本地 `.dev.vars`、生产 `wrangler secret put`),按钮自动出现。
+- **给用户加字段**:改 `src/features/auth/auth.schema.ts`,再 `pnpm db:generate` +
+  迁移(见 [迁移与种子](/docs/getting-started/migrations))。
+- **关掉邮箱验证**:把 `requireEmailVerification` 设为 `false`(不推荐生产环境这么做)。
+
+<Callout type="warn">
+本地没配 `RESEND_API_KEY` 时,验证邮件不会真发 —— 链接会**打印到 `pnpm dev` 的
+控制台**,复制到浏览器即可完成验证。见 [邮件](/docs/features/email)。
+</Callout>

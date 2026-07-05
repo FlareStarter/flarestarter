@@ -1,0 +1,64 @@
+---
+title: "计费与订阅"
+---
+
+基于 Stripe 的订阅(月付/年付)**与**一次性终身买断,带幂等 webhook、套餐门控(`requirePlan`)、计费事件钩子。本页讲**权益模型**、**webhook 处理**、以及**扣款失败(dunning)**怎么分工。
+
+## 权益模型(`entitlement.ts`)
+
+`getEntitlement()` 返回一个 `Entitlement`:`{ plan, status, isActive, currentPeriodEnd, lifetime, paymentFailed }`。
+
+- `plan`:`free` | `pro`。`requirePlan('pro')` 据此做路由门控;`role === 'admin'` 直接放行(角色高于付费墙)。功能门控用 `hasProAccess(role, ent)`,计费 UI(套餐徽章/升级按钮)保持用 `ent.plan` 反映真实订阅。
+- `lifetime`:终身买断优先于一切 status(即使 `canceled` 仍是 Pro)。
+- `paymentFailed`:续费扣款失败的**站内信号**(见下文)。
+
+## Webhook 处理(开源版范围)
+
+`translateStripeEvent` 把 Stripe 事件翻成领域事件,落库时**幂等**(`processed_webhook_events` 去重):
+
+| Stripe 事件 | 处理 |
+|------------|------|
+| `customer.subscription.created/updated` | upsert 订阅状态;`active/trialing` → Pro 门控开,`past_due` 等 → 关 |
+| `customer.subscription.deleted` | 降级 free |
+| `checkout.session.completed`(mode=payment) | 终身买断激活(仅 `payment_status=paid`;延迟到账时不预授) |
+| `checkout.session.async_payment_succeeded` | 延迟到账支付(ACH/SEPA 等)入账 → 终身买断激活 |
+| `charge.refunded`(全额) | 终身买断退款 → 降级 |
+| `invoice.payment_failed` | 置 `paymentFailed` flag(站内 banner),触发 `onPaymentFailed` 钩子 |
+| 其余(`invoice.paid` / dispute 等) | 忽略(商业版扩展点) |
+
+## 扣款失败(Dunning):Stripe 负责重试,app 负责站内提示
+
+**重试与催缴邮件交给 Stripe**——它做得比手搓的好,而且零代码:
+
+1. Stripe Dashboard → **Settings → Billing → Subscriptions and emails**。
+2. 开启 **Smart Retries**(智能重试失败扣款)。
+3. 开启 **failed payment 的客户邮件**(自带"更新支付方式"的托管链接)。
+4. 可选:配置重试耗尽后是 `cancel` 还是 `mark unpaid` 订阅。
+
+模板**只补 Stripe 给不了的那一件事——站内信号**:
+
+- 收到 `invoice.payment_failed` → 在订阅行置 `payment_failed_at`(`billing.server.ts`)。
+- `resolveEntitlement` 据此暴露 `entitlement.paymentFailed`。
+- 登录后的 app 顶部显示 [`PaymentFailedBanner`](https://github.com/flarestarter/flarestarter/blob/main/src/features/billing/components/payment-failed-banner.tsx):"上次扣款失败,请更新支付方式" → 跳 Stripe Customer Portal 换卡。
+- 扣款恢复(订阅回到 `active/trialing`)时,flag **自动清除**。
+
+> 为什么不在 app 里发阶梯催缴邮件?那会和 Stripe 的能力重复、且节奏脆弱。分工后,**dunning 不需要 Cron**——这也是 Cron 在开源版被定性为"清理任务参考实现"而非计费基建的原因(见 [cf-gotchas](/docs/platform/cf-gotchas))。
+
+## 计费事件钩子(`hooks.ts`)
+
+`BillingHooks` 让你在状态跃迁后挂副作用(best-effort,失败不影响 webhook 返回 200):
+
+- `onProActivated(ctx, via)` —— 例:发"Pro 已开通"邮件(默认已示范)。
+- `onProDeactivated(ctx, reason)` —— 例:回收已开通资源。
+- `onPaymentFailed(ctx)` —— 例:发 Slack 提醒。重试邮件别在这发(Stripe 已发)。
+
+编辑 `src/features/billing/hooks.ts` 接你自己的逻辑。
+
+## 本地开发
+
+留空 `STRIPE_*` key 时,计费入口优雅降级(无结账按钮)。测试 webhook 用 Stripe CLI:
+
+```bash
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+stripe trigger invoice.payment_failed   # 验证站内 banner 出现
+```

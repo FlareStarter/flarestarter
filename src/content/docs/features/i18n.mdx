@@ -1,0 +1,28 @@
+---
+title: "国际化（i18n）与 SEO"
+---
+
+## 路由
+
+- 语言走路径前缀（TanStack `{-$locale}` 可选参数）：默认 `en` 无前缀（`/`、`/pricing`），`zh` 带前缀（`/zh`、`/zh/pricing`）。
+- locale 来自路由 param（非 cookie）；主题仍 cookie。
+- `/en/...` 会 307 规范化到无前缀路径；未知语言 → 404。
+- 本地化页面在 `src/routes/{-$locale}/`；`api/`、`sitemap.xml`、`robots.txt` 在根、不本地化。
+- 切换语言（LangSwitch）保留当前子路径。
+
+## 新增一种语言
+
+1. 在 `src/features/i18n/locale.ts` 的 `locales` 加语言代码。
+2. 新建 `src/features/i18n/dictionaries/<code>.ts`（`Dict` 类型会在编译期强制补全所有键）。
+3. sitemap / robots / hreflang 自动覆盖；无需改业务代码。
+
+## SEO
+
+- `sitemap.xml`：列各语言公开页 + hreflang（en/zh/x-default）。
+- `robots.txt`：Disallow `/*/app`、`/*/admin`、`/api`；含 Sitemap 链接。
+- 公开页 head 由 `localeHead` 产出 canonical + hreflang + OG；app 页 `noindex`。
+- origin 取自 `BETTER_AUTH_URL`。
+
+## Lighthouse（手动验收）
+
+落地页 SEO / Core Web Vitals 用 Chrome Lighthouse 手动验收（CI 不自动跑）。view-source 应见服务端渲染好的 HTML + `rel="canonical"` + hreflang。

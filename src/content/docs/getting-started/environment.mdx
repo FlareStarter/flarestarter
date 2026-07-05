@@ -1,0 +1,78 @@
+---
+title: 环境变量
+description: 了解 FlareStarter 需要配置哪些环境变量以及它们的用途。
+---
+
+在根目录下有一个 `.dev.vars.example` 文件。当你进行本地开发时，需要将其复制并重命名为 `.dev.vars`。
+
+<Callout type="info">
+在 Cloudflare Workers 环境下，生产环境的密钥不是写在文件里的，而是需要使用 `wrangler secret put <KEY>` 命令设置到 Cloudflare 面板中。
+</Callout>
+
+## 核心配置
+
+<TypeTable
+  type={{
+    BASE_URL: {
+      description: '应用的基础访问地址',
+      type: 'string',
+      default: 'http://localhost:3000',
+    },
+    BETTER_AUTH_SECRET: {
+      description: 'Better Auth 用于加密 Session 和 Token 的密钥。',
+      type: 'string',
+    },
+  }}
+/>
+
+## 数据库 (D1)
+无需在此处配置数据库账号密码。Cloudflare D1 使用绑定的 Database ID，详情请见 [部署到 Cloudflare](/docs/getting-started/deploy)。
+
+## 邮件 (Resend)
+用于发送登录验证码或营销邮件。
+<TypeTable
+  type={{
+    RESEND_API_KEY: {
+      description: '从 Resend Dashboard 获取的 API 密钥',
+      type: 'string',
+    },
+    EMAIL_FROM: {
+      description: '发件人邮箱，例如 noreply@yourdomain.com',
+      type: 'string',
+    },
+  }}
+/>
+
+## 支付 (Stripe)
+用于计费和订阅。
+<TypeTable
+  type={{
+    STRIPE_SECRET_KEY: {
+      description: 'Stripe 的 Secret Key，用于服务端调用 Stripe API',
+      type: 'string',
+    },
+    STRIPE_WEBHOOK_SECRET: {
+      description: 'Stripe Webhook 签名密钥，用于校验回调真实性',
+      type: 'string',
+    },
+    VITE_STRIPE_PUBLISHABLE_KEY: {
+      description: '暴露给客户端的 Stripe Publishable Key',
+      type: 'string',
+    },
+  }}
+/>
+
+## 安全与防护 (Turnstile)
+替代 Google reCAPTCHA 的无感人机验证。
+<TypeTable
+  type={{
+    TURNSTILE_SECRET_KEY: {
+      description: '用于服务端验证',
+      type: 'string',
+    },
+    TURNSTILE_SITE_KEY: {
+      description: '渲染验证小组件（服务端读取后随页面下发；两个 key 必须成对配置，只配 secret 会让所有表单提交被拒）',
+      type: 'string',
+    },
+  }}
+/>

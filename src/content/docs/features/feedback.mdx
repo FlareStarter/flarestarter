@@ -1,0 +1,167 @@
+---
+title: "Feedback（示例切片）"
+---
+
+开源版内置的「垂直切片范本」：一个完整的业务功能——从表到路由到测试——长什么样。加你自己的功能（`posts`、`projects`……）时照抄它的层次；产品不需要反馈渠道时按文末指引整体删除。它同时是个真实可用的功能：登录用户提交反馈、限量 10 条 `open` 存量防滥用、管理员分页治理并可回复一句话。
+
+## 1. Schema（`feedback.schema.ts`）
+
+```ts
+export const feedback = sqliteTable('feedback', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  body: text('body').notNull().default(''),
+  status: text('status').notNull().default('open'), // FeedbackStatus
+  adminNote: text('admin_note'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, (t) => [
+  index('feedback_userId_idx').on(t.userId),
+])
+```
+
+两个细节决定了这张表能不能扛住真实流量：
+
+- **`onDelete: 'cascade'`**：删号即删干净反馈，不留孤儿行——账号删除测试断言的正是这一点（见下文「测试」）。
+- **显式索引**：SQLite **不会**为外键自动建索引。没有 `feedback_userId_idx`，按用户查询（`listMyFeedback`）和级联删除时子表扫描都是全表扫，表一大就是慢查询雷。这是 notes 表退役前留下的注释范式，照抄即可。
+
+对应 migration 是 `drizzle/0015_familiar_colonel_america.sql`（建表 + 建索引）。
+
+## 2. 归属（`db/scope.ts`）
+
+`Scope` 是本仓库归属过滤的**唯一**入口：
+
+```ts
+export interface Scope { ownerId: string }
+export function scopeFromUser(userId: string): Scope { return { ownerId: userId } }
+export function ownedBy(table: { userId: Column }, scope: Scope): SQL {
+  return eq(table.userId, scope.ownerId)
+}
+export function withOwner<V extends Record<string, unknown>>(scope: Scope, values: V) {
+  return { ...values, userId: scope.ownerId }
+}
+```
+
+`feedback.server.ts` 是它的**首个生产消费者**：查询用 `ownedBy(feedback, scope)`，写入用 `withOwner(scope, values)`，删除用 `and(ownedBy(...), eq(feedback.id, id), ...)`。全仓库不允许出现手写的 `where(eq(feedback.userId, someId))`——原因不是洁癖，而是**换成商业版多租户时，只需要改 `scopeFromUser`/`ownedBy`/`withOwner` 这三个函数**，业务代码一行不动。手写的 `where userId=` 会散落在几十个查询里，届时逐个改是回归的温床。
+
+## 3. 纯函数层（`feedback.server.ts`）
+
+这一层没有任何 `react-start` import，所以能在 Vitest **workers 池**里直接建表、直接调用、直接断言——不需要跑起整个 server fn 管线。业务规则全部收在这里，不下沉到路由或门控层：
+
+- `createFeedback(db, scope, { title, body }, now)`——trim + 长度校验（`TITLE_MAX=80`、`BODY_MAX=2000`，来自 `feedback.shared.ts`）；`COUNT(open by owner) >= OPEN_LIMIT(10)` 时返回 `{ ok: false, reason: 'limit' }`；通过后 `withOwner` 落库。注意 COUNT→INSERT 不是原子操作，并发提交理论上可短暂超限——这是**故意**的软闸（真正的治理手段是 admin 封禁账号），为教学示例上事务或唯一约束不值得，保持代码的诚实简单比“看起来更严谨”更重要。
+- `listMyFeedback(db, scope)`——`ownedBy` 过滤 + 按 `createdAt` 倒序。
+- `deleteMyFeedback(db, scope, id)`——**一条 SQL 里的归属 + 状态双守卫**：`WHERE ownedBy(...) AND id=... AND status='open'`。漏掉归属守卫是越权删除（能删别人的反馈），漏掉状态守卫会让用户抹掉已进入治理流程（`planned`/`shipped`/`closed`）的记录。
+- `listFeedbackForAdmin(db, { page, pageSize })`——`LEFT JOIN user`（拿 name/email/role）+ `LEFT JOIN subscription`（拿 plan/status/lifetime），逐行派生 `isPro = hasProAccess(role, resolveEntitlement(sub))`。这是 `hasProAccess` 在仓库里的第二个真实用例（第一个是套餐门控），用来在治理列表里给付费用户的反馈打 Pro 徽章。
+- `setFeedbackStatus(db, id, status, adminNote, now)`——状态流转（校验 `status` 落在 `FEEDBACK_STATUSES` 里）+ 可选一句话回复，更新 `updatedAt`。
+
+**为什么单独有 `feedback.shared.ts`**：`FEEDBACK_STATUSES`、`TITLE_MAX`、`BODY_MAX`、`OPEN_LIMIT` 这几个常量客户端组件（表单校验、状态徽章）和服务端都要用。如果把它们定义在 `feedback.server.ts` 里，客户端组件 `import` 它就会把 Drizzle、`db/scope` 等服务端依赖一并拖进浏览器 bundle。`feedback.shared.ts` 顶部注释写死了这条规矩：「不要在这里 import 任何服务端模块」——它是纯函数层和 UI 层共享常量、又不污染 bundle 的隔离层。
+
+## 4. 门控（两套既有模式）
+
+仓库对「谁能调用」用了两套不同的门控风格，feedback 各用一套做示范：
+
+**用户侧** —— `src/features/feedback/actions.ts`：每个 server fn 内部调 `currentUser()`，它直接 `await readUser()`（**不是** `requireUser` 这个 server fn）。原因写在文件顶部注释里：页面已经由路由 `loader` 的 `requireUser` 门控过一次，如果 handler 内部再调 `requireUser`（它本身也是个 server fn），会在同一次请求里发起“server fn 调 server fn”的双跳 RPC。这里的鉴权只是纵深防御，不是主门控，所以直调更省一跳网络；未登录时抛的是 login redirect 而不是普通 `Error`——因为 `feedback.tsx` 的 loader 用 `Promise.all([requireUser(...), getMyFeedbackFn()])` 并发调用，谁先 reject 谁决定结果，若这里抛 `Error` 就可能抢在 `requireUser` 的 redirect 之前命中错误边界，而不是跳转登录页。
+
+```ts
+async function currentUser() {
+  const { readUser } = await import('@/features/auth/readUser.server')
+  const user = await readUser()
+  if (!user) throw redirect({ to: '/{-$locale}/login' })
+  return user
+}
+```
+
+**Admin 侧** —— 追加到 `src/features/admin/middleware.ts` 的 `getFeedbackFn` / `setFeedbackStatusFn`，门控统一用 `assertAdmin()`：
+
+```ts
+export const getFeedbackFn = createServerFn({ method: 'GET' })
+  .validator((d: { page?: number; pageSize?: number }) => ({ page: clampPage(d?.page), pageSize: clampPageSize(d?.pageSize) }))
+  .handler(async ({ data }) => {
+    await assertAdmin()
+    return listFeedbackForAdmin(createDb(env.DB), data)
+  })
+```
+
+`assertAdmin()`（`src/features/admin/assert-admin.server.ts`）非管理员一律 `throw notFound()`——即 **404**，不是 403，避免向普通用户泄露「后台存在」这件事；它还处理撤权语义：`ADMIN_EMAILS` 是权威来源，DB 里的 `role` 只是缓存，`fresh: true` 读会话保证从 `ADMIN_EMAILS` 移除某个邮箱能立即生效，不被过期的 DB 角色或会话缓存续命。两套模式的取舍标准很简单：**面向登录用户自己数据**的路径用 `readUser` 直调省一跳；**面向治理面**的路径必须过 `assertAdmin`，宁可多一层判断也不能让权限判断散落。
+
+## 5. 路由与 i18n
+
+`/app/feedback`（`src/routes/{-$locale}/app/feedback.tsx`）的 loader 并行跑两件事：
+
+```ts
+loader: async ({ params }) => {
+  const [user, items] = await Promise.all([
+    requireUser({ data: { locale: (params as { locale?: string }).locale } }),
+    getMyFeedbackFn(),
+  ])
+  return { user, items }
+},
+```
+
+`requireUser` 显式传 `locale`——未登录时跳转登录页要带上当前语言前缀，否则中文用户会被弹回默认语言的登录页。`/admin/feedback`（`src/routes/{-$locale}/admin/feedback.tsx`）的 loader 更简单：直接调 `getFeedbackFn`，鉴权已经在 server fn 内部靠 `assertAdmin` 兜底，路由层不用重复判断。
+
+i18n 字典 `en.ts` / `zh.ts` 必须结构同一（`zh` 类型是 `typeof en`），`feedback.*` 这一组键——表单文案、列表、删除确认、`limitReached`——两个文件同增同删。**动态状态键**要小心：状态徽章文案是 `t(`feedback.status.${f.status}`)`，这种插值键在两个字典里都要把 `open`/`planned`/`shipped`/`closed` 四个子键补全，少一个不会在编译期报错，只会在运行时该状态下界面裸露 key 名。`admin.feedbackAdmin` / `admin.feedbackSub` / `admin.adminNotePlaceholder` 是治理页专属的补充键，挂在 `admin` 组而不是 `feedback` 组。
+
+侧边栏两个入口：`AppShell` 里 Workspace 组的 `active === 'feedback'`（用户页）和 Admin 组的 `active === 'admin-feedback'`（治理页），都在 `src/components/app/app-shell.tsx`。
+
+## 6. 测试（双池）
+
+`feedback.workers.test.ts` 跑在 **workers 池**（真实 D1，`cloudflare:test` 的 `env.DB`）。workers 池**不会**自动跑 migration，所以 `beforeAll` 里手写建表 DDL（`feedback` 表 + 一份最小 `subscription` 表，供 admin JOIN 测试用），再插入两个测试用户（`fb-a` 普通用户、`fb-b` 管理员，用来验证 Pro 徽章派生）：
+
+```ts
+beforeAll(async () => {
+  await applyAuthSchema(env.DB)
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS feedback (...)`)
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS "subscription" (...)`)
+  // 插入 fb-a（role: user）、fb-b（role: admin）
+})
+```
+
+断言清单覆盖每一条业务规则和每一道守卫：
+
+- 合法输入落库且 `withOwner` 写对了归属；trim 生效。
+- 空标题 / 超长 body → 对应 `reason`。
+- 连续提交撞到 `OPEN_LIMIT`（10）→ `limit`；关闭一条腾出配额后可再提交（非 `open` 状态不占额度）。
+- 归属隔离：A 看不到 B 的反馈。
+- 删除双守卫：B 删不动 A 的（归属）；A 删不动自己已 `planned` 的（状态）；A 删得动自己 `open` 的。
+- admin 列表 JOIN 出提交人 email、`isPro` 派生正确（`fb-b` 的 admin 角色应为 `true`，`fb-a` 应为 `false`）、`setFeedbackStatus` 写入的状态和 `adminNote`（trim 后）能读回来。
+
+> **级联删除断言不在这个文件里**：删 `user` 行后 `feedback` 一并消失，这条断言在 `src/features/auth/auth.workers.test.ts` 的 `test('5. delete user cascades feedback (FK)')`——它是删号流程测试的职责，不是 `feedback.workers.test.ts` 的。照抄本切片加新功能时容易想当然地把级联断言也写进新 feature 自己的测试文件，记住：**级联删除是账号删除流程负责验证的，写进 `auth.workers.test.ts`**，新 feature 的 workers 测试只管自己那张表的业务规则和守卫。
+
+> 测试间共享同一份 D1（没有逐用例的存储回滚），`OPEN_LIMIT` 那条用例刻意把 B 打到上限做边界断言，结尾必须把 B 的 `open` 存量清零，否则会把"已在上限"状态泄漏给后面依赖"B 还能再提交"的用例。写新测试时留意这类跨用例状态泄漏。
+
+## 照抄清单：加你自己的功能
+
+按这个顺序抄一遍上面六层，一个新功能（比如 `posts`）就能长出全套骨架：
+
+1. **Schema**：`posts.schema.ts`——归属外键 `references(() => user.id, { onDelete: 'cascade' })` + 显式索引。
+2. **注册**：加进 `src/db/schema.ts` 的聚合导出。
+3. **Migration**：`pnpm db:generate` 生成 → `pnpm db:migrate:local` 应用到本地 D1。
+4. **纯函数层**：`posts.server.ts`——业务规则（长度/上限/状态流转）都放这层；无 `react-start` import。
+5. **workers 测试**：`posts.workers.test.ts`——`beforeAll` 手写建表 DDL，覆盖归属隔离 + 守卫 + 级联删除。
+6. **门控**：用户侧 `posts/actions.ts`（`readUser` 直调）或 admin 侧追加到 `admin/middleware.ts`（`assertAdmin`），按你的功能面向谁选一套。
+7. **路由页**：`loader` 里门控 + 数据预取；用户侧记得给 `requireUser` 传 `locale`。
+8. **i18n**：`en.ts` / `zh.ts` 同增 `posts.*` 键组，动态键（状态徽章一类）逐个子键补全。
+9. **手工 DDL 同步**：如果别处的 workers 测试（比如账号删除的级联断言）依赖这张新表，记得同步改它们的 `beforeAll` 建表语句。
+
+## 上线前如何整体删除本示例
+
+产品不需要反馈渠道时，删除步骤：
+
+1. 删 `src/features/feedback/` 整个目录。
+2. 删两个路由文件：`src/routes/{-$locale}/app/feedback.tsx`、`src/routes/{-$locale}/admin/feedback.tsx`。
+3. 删侧边栏两个入口：`src/components/app/app-shell.tsx` 里 `active === 'feedback'` 和 `active === 'admin-feedback'` 的两处 `<Link>`。
+4. 删 `en.ts` / `zh.ts` 里的 `feedback.*` 键组，以及 `admin` 组下 `feedbackAdmin`/`feedbackSub`/`adminNotePlaceholder` 等相关键。
+5. 从 `src/db/schema.ts` 移除 `feedback` 表的导出，生成一条 `DROP TABLE feedback` migration（**不要**改历史上已发布的建表 migration `0015_familiar_colonel_america.sql`——参考 `0016_bent_nova.sql` 就是 notes 表退役时新增的 `DROP TABLE notes`，同样的模式）。
+6. `scripts/seed.sql` 里去掉 `DELETE FROM feedback` / `INSERT INTO feedback` 那几行种子数据。
+7. 删本文档页 `src/content/docs/features/feedback.mdx` 自身。
+8. 从 `src/content/docs/features/meta.json` 的 `pages` 数组移除 `"feedback"` 注册。
+
+## V2 练习题
+
+想继续练手，试试这几个方向（都刻意留在 V2 之外，不在开源版实现）：
+
+- **公开路线图 + 投票**：把 `status='planned'/'shipped'` 的反馈做成一个无需登录可见的公开页，加一张 `feedback_vote(feedback_id, user_id)` 关联表做去重投票，按票数排序。
+- **状态变更邮件通知**：`setFeedbackStatus` 状态跃迁后触发一封「你的反馈有新进展」邮件——参照 `billing` 切片的 `hooks.ts`（`onProActivated` 等）钩子模式，给 feedback 也加一个 best-effort 的通知钩子，接 `email` feature 的模板系统。
+- **CSV 导出**：治理页加导出按钮，照 `sponsor` 切片的 `/admin/sponsors.csv` 抄一份 `/admin/feedback.csv`。

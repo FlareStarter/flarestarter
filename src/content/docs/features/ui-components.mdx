@@ -1,0 +1,54 @@
+---
+title: UI 组件与样式
+description: 了解如何在 FlareStarter 中使用 Tailwind CSS v4 和基础组件库。
+---
+
+FlareStarter 提供了一套轻量、开箱即用的 UI 规范。在 `src/components/ui` 目录下，包含了一系列基础的交互组件。
+
+## 样式方案 (Tailwind v4)
+
+本项目使用了最新的 **Tailwind CSS v4** 进行样式管理。
+主要的全局样式定义在 `src/styles/app.css` 中：
+
+```css
+@import 'tailwindcss';
+@plugin 'tailwindcss-animate';
+
+@theme {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  /* 其他主题变量 */
+}
+```
+
+## 基础组件 (Primitives)
+
+绝大部分的基础组件是基于 [Radix UI](https://www.radix-ui.com/) 无头组件封装的（类似于 shadcn/ui 的设计模式）。
+你可以直接从 `src/components/ui/` 中导入它们。
+
+### 使用范例
+
+```tsx
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
+export function LoginForm() {
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-2">
+        <Label htmlFor="email">邮箱</Label>
+        <Input id="email" type="email" placeholder="m@example.com" />
+      </div>
+      <Button type="submit">登 录</Button>
+    </div>
+  )
+}
+```
+
+### 如何添加新组件
+
+如果你需要添加当前项目中不存在的组件（例如 DatePicker, Slider 等），由于项目目前使用的是基础的复制粘贴模式，你可以：
+1. 访问 [shadcn/ui 组件库](https://ui.shadcn.com/docs/components/accordion)
+2. 选择你需要的组件，查看其代码。
+3. 在 `src/components/ui/` 中新建对应的文件并粘贴代码（注意可能需要手动调整 `cn` 函数的导入路径或安装相应的 Radix 依赖）。

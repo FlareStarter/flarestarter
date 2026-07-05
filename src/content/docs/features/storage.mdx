@@ -1,0 +1,53 @@
+---
+title: "Storage (R2)"
+---
+
+基于 [Cloudflare R2](https://developers.cloudflare.com/r2/) 的对象存储。模板内置了一个
+最小实现 —— 账户页的**头像上传**,它是你后续做任何文件上传功能的参考蓝本。
+
+> **fork 后你要改哪:** 大多数场景照抄 `uploadAvatar` 这条链路即可 —— 改
+> `src/features/storage/storage.ts` 里的类型/大小白名单,再按需复制一份 server fn。
+> 无需改绑定配置。
+
+## 工作原理
+
+`BUCKET` 是一个 Cloudflare **绑定**(binding),和 `DB`、`CACHE` 一样声明在
+`wrangler.jsonc` 里。与 Stripe/Resend(可以缺省的外部 API key)不同,绑定**始终存在**
+—— 本地开发和测试用的是 miniflare 模拟的 R2,**零配置**即可跑。
+
+- **写** —— `uploadAvatar` server fn(`src/features/storage/actions.ts`):校验类型/大小
+  (`src/features/storage/storage.ts`),以每用户一个 key 写入 R2
+  (`avatars/<userId>` —— 重复上传即覆盖,不产生孤儿对象),再把 `user.image` 指向读取路由。
+- **读** —— R2 对象非公开,所以由 `GET /api/avatars/<userId>`
+  (`src/routes/api/avatars/$.ts`)把对象流式返回,并从 R2 的 `httpMetadata` 恢复
+  `Content-Type`。存储的 URL 每次上传都会加缓存击穿参数(`?v=…`)。
+- **校验**放在纯函数 `storage.ts` 里,浏览器选择器和服务端 handler 共用同一套规则。
+  限制:2 MB;PNG/JPEG/WebP/GIF。
+
+## 本地开发与测试
+
+无需任何配置 —— `pnpm dev` 和 `pnpm test` 都用 miniflare 的 R2。workers 集成测试
+(`storage.workers.test.ts`)会跑一次真实的 put/get 往返。
+
+## 部署
+
+<Callout type="warn">
+桶(bucket)在你创建之前并不存在。**首次部署前必须先建桶**,否则 `wrangler deploy`
+的校验会失败。
+</Callout>
+
+```bash
+wrangler r2 bucket create flarestarter-files            # 默认(top-level)
+wrangler r2 bucket create flarestarter-files-staging    # staging 环境
+wrangler r2 bucket create flarestarter-files-prod       # production 环境
+```
+
+绑定名已在 `wrangler.jsonc` 里接好(top-level + 每个命名环境),无需改动。
+
+## 扩展
+
+- **其他文件类型** —— 复制 `uploadAvatar`,替换 `storage.ts` 里的白名单即可。
+- **按用户/按组织配额** —— 在写入时按字节计量。商业版的 `usage` 计量分支已备好可接入的表。
+- **更大的文件** —— 多 GB 上传改用
+  [预签名 URL](https://developers.cloudflare.com/r2/api/s3/presigned-urls/),让字节流
+  完全绕过 Worker。

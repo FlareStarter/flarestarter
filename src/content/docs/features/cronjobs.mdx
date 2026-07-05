@@ -1,0 +1,36 @@
+---
+title: 定时任务 (Cron Jobs)
+description: 利用 Cloudflare Workers 的 Cron Triggers 运行定时任务。
+---
+
+在 SaaS 应用中，定时任务（Cron Jobs）是必不可少的功能。例如：每天凌晨清理过期的试用账号、每周末发送系统周报等。得益于 Cloudflare Workers 的强大特性，你可以非常轻松地设置这些任务，而无需额外部署一台服务器。
+
+## 工作原理
+
+Cloudflare Workers 支持通过配置 `wrangler.jsonc` 文件来定义 Cron Triggers。当到达指定时间时，Cloudflare 会自动调用 Worker 中的 `scheduled` 事件处理器。
+
+## 增加定时任务
+
+### 1. 修改 `wrangler.jsonc`
+在你的 `wrangler.jsonc` 中添加（或修改）`triggers` 配置块：
+
+```jsonc
+{
+  "triggers": {
+    "crons": [
+      "0 0 * * *", // 每天午夜 00:00 (UTC) 运行
+      "*/15 * * * *" // 每 15 分钟运行一次
+    ]
+  }
+}
+```
+
+### 2. 编写处理逻辑
+系统会在后台触发 `scheduled` 事件。由于我们使用的是 TanStack Start，底层的 entry point 会捕获这个事件。在现有的模板代码中，你需要找到或创建专门处理 `scheduled` 逻辑的入口代码（通常在 `src/entry.worker.ts` 或专门的脚本中处理这些事件调度）。
+
+<Callout type="warning">
+注意：Cron Jobs 的执行环境是 Workers，执行时间有限制（通常不超过 30 秒）。对于非常耗时的数据清洗任务，建议使用 Cloudflare Queues 进行异步队列处理。
+</Callout>
+
+## 本地测试 Cron Jobs
+在开发环境中，你无法像生产环境那样等待定时器触发。你可以使用 Wrangler 的测试命令或者通过专门暴露出来的 HTTP Endpoint 触发对应的业务逻辑。

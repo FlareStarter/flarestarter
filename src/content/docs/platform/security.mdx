@@ -1,0 +1,82 @@
+---
+title: "安全加固"
+---
+
+模板默认就带的安全措施。报告漏洞请看根目录 [`SECURITY.md`](https://github.com/flarestarter/flarestarter/blob/main/SECURITY.md);这里讲**已经就位的防护**和怎么调。
+
+## 1. 安全响应头(`src/lib/security-headers.ts`)
+
+自定义 worker 入口(`src/worker.ts`)给**每个响应**加上:
+
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- `Strict-Transport-Security`(HTTPS 下生效)
+
+外加**仅生产**注入的 `Content-Security-Policy`(dev 不注入,因为 Vite 需要 eval/ws)。当前 CSP 用了 `'unsafe-inline'`(TanStack 的注水内联脚本 + React/Tailwind 内联样式需要),并放行了字体/Turnstile/Analytics 域。**建议的下一步**是改成基于 nonce 的策略以去掉 `'unsafe-inline'`。
+
+改 CSP:编辑 `security-headers.ts` 里的 `PROD_CSP`。新增第三方域(脚本/iframe/上报)时记得同步放行,否则浏览器会拦。
+
+## 2. 启动期环境校验(`src/lib/env-validate.ts`)
+
+一个 zod schema 在 worker 冷启动时校验 env:缺必填项(`BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`)、半配的 OAuth/Turnstile 对、设了 Stripe key 却没 webhook secret —— 都会**快速失败**(抛错,日志可见),而不是在某个请求里隐蔽地崩。`Env` 类型从 schema 推断,新增变量在这里加一行即可。
+
+## 3. 认证端点限流(`auth.server.ts` 的 `rateLimit`)
+
+better-auth 内置规则,**按客户端 IP** 限流:
+
+| 端点 | 限制 |
+|------|------|
+| `/sign-in/*`、`/sign-up/*`、`/change-password/*`、`/change-email/*` | 10 秒内 3 次 |
+| `/send-verification-email`、`/request-password-reset`、`/forget-password/*` | 60 秒内 3 次 |
+
+挡的是**凭证爆破**和**邮件轰炸**。超限返回 `429`,客户端映射到 `auth.errors.rateLimited` 文案。
+
+两个 Workers 关键点(已在代码注释写明):
+- **存储用 D1**(`storage: 'database'`)。默认的 `memory` 在 Workers 上按 isolate 碎片化、等于没限流;D1 共享、强一致、贴免费额度(10万写/天)。计数存在 `rateLimit` 表。
+- **IP 取 `cf-connecting-ip`**(`advanced.ipAddress.ipAddressHeaders`)。不配则限流器拿不到可信 IP 会**直接跳过**。
+
+调阈值:给 `rateLimit` 加 `customRules`(path → `{ window, max }`,支持通配)。
+
+## 4. Bot 防护:Cloudflare Turnstile(可选)
+
+设了 `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` 才启用(见 better-auth captcha 插件)。注册/登录/找回密码的表单会渲染 Turnstile widget,token 经 `x-captcha-response` 头校验。留空则不渲染、端点不校验(优雅降级)。
+
+> Turnstile 挡脚本化 bot,限流挡慢速爆破/刷量——两者**互补**,建议都开。
+
+## 5. 应用层配额(按 user / 按 plan)——你自己接
+
+第 3 节的限流挡的是**匿名/凭证级**滥用(IP 维度)。但"免费用户每天 10 次、Pro 每天 1000 次"这类**业务配额**,模板**刻意不封装**——因为"一个单位算什么"、各档给多少、到顶了是拦截还是弹升级,全是产品决策,模板替你拍板只会逼你后面跟它打架。
+
+这件事在 CF 栈上并不难。参考模式(D1 计数器,与本仓库"D1 为真相源"一致):
+
+```ts
+// 在你的付费动作 server fn 里,拿到 entitlement 之后:
+import { getEntitlementFor } from '@/features/billing/billing.server'
+
+const LIMITS = { free: 10, pro: 1000 } as const
+
+async function assertQuota(db: DB, userId: string) {
+  const ent = await getEntitlementFor(db, userId)
+  const day = new Date().toISOString().slice(0, 10)        // YYYY-MM-DD
+  const key = `${userId}:${day}`
+  // usage 表:key TEXT PRIMARY KEY, count INTEGER, day TEXT(便于按天清理 / 复用 cron)
+  const [row] = await db.select().from(usage).where(eq(usage.key, key))
+  const used = row?.count ?? 0
+  if (used >= LIMITS[ent.plan]) throw new Error('quota_exceeded')   // → 前端弹升级
+  await db.insert(usage).values({ key, count: 1, day })
+    .onConflictDoUpdate({ target: usage.key, set: { count: sql`${usage.count} + 1` } })
+}
+```
+
+要点:
+- **按 plan 取上限**用现成的 `getEntitlementFor`(免费/Pro/终身已替你算好)。
+- **计数器**:低频用 D1(强一致);超高频(每秒多次)可换 KV,但要接受最终一致(跨 colo 并发可短时超额)。
+- **清理**:按天 key 让陈旧行可被 [Cron 清理任务](/docs/platform/cf-gotchas)顺手删掉——把 `usage` 加进 `runCleanup` 即可。
+
+## 还没做(部署时自行评估)
+
+- CSP 收紧到 nonce(去掉 `'unsafe-inline'`)
+- 浏览器端错误监控(当前 Sentry 是服务端,见 [observability.md](/docs/platform/observability))
+- 审计日志、2FA/passkey(可作为商业版/后续能力)
