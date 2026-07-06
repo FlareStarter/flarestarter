@@ -18,7 +18,13 @@ export const Route = createRootRoute({
       { property: 'og:description', content: 'The open-source, Cloudflare-native SaaS starter. Clone it and ship on Workers.' },
       { property: 'og:type', content: 'website' },
     ],
-    links: [{ rel: 'stylesheet', href: appCss }],
+    links: [
+      { rel: 'stylesheet', href: appCss },
+      { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
+      { rel: 'icon', type: 'image/png', href: '/logo192.png', sizes: '192x192' },
+      { rel: 'apple-touch-icon', href: '/logo192.png' },
+      { rel: 'manifest', href: '/manifest.json' },
+    ],
   }),
   loader: async () => {
     // Never throw here: if the root loader errors, the error page replaces

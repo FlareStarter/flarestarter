@@ -21,13 +21,13 @@
 
 [English](README.en.md) | **简体中文**
 
-FlareStarter 刻意对「自己究竟提供了什么」保持诚实：这里没有任何为了堆砌概念而伪造 (mock) 或留空的功能。仓库里的一切都跑在 Cloudflare 的「极低成本甚至免费」的技术栈上 (Workers + D1 + KV)。
+FlareStarter 只交付能跑的东西：仓库里的每个功能都是真实实现，没有 mock、没有占位、没有为凑数而留空的 TODO。所有代码都跑在 Cloudflare 的低成本（乃至免费）技术栈上 (Workers + D1 + KV)。
 
 ## 核心优势
 
 - **边缘原生计算**：基于 Cloudflare Workers，全球毫秒级响应，告别冷启动。
 - **极低的运维成本**：巧妙利用 CF 的免费额度，0 成本起步，应对突发流量也毫无压力。
-- **电池内置 (Batteries Included)**：无需拼凑各种库，鉴权、支付、邮件等 SaaS 必备模块开箱即用。
+- **开箱即用**：鉴权、支付、邮件等 SaaS 必备模块全部内置，无需自己拼凑各种库。
 - **端到端类型安全**：从数据库 (Drizzle) 到前端 (TanStack Start) 的全链路 TypeScript 体验。
 
 ## 预览

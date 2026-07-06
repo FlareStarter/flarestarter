@@ -21,7 +21,7 @@
 
 **English** | [简体中文](README.md)
 
-FlareStarter is deliberately honest about what it ships: everything in this repo runs on the Cloudflare free-to-cheap stack (Workers + D1 + KV). No feature is mocked or stubbed to look bigger than it is.
+FlareStarter ships only what actually works: every feature in this repo is a real implementation — no mocks, no stubs, no placeholder TODOs padding the count. It all runs on the Cloudflare free-to-cheap stack (Workers + D1 + KV).
 
 ## Core advantages
 
