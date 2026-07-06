@@ -14,6 +14,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # wrangler.jsonc 不入库（含真实资源 id）；用提交的占位模板即可通过 build 检查
+      # （占位符只被烘焙进产物、不校验真实性，CI 不部署）。
+      - run: cp wrangler.example.jsonc wrangler.jsonc
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test

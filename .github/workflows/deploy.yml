@@ -30,6 +30,15 @@ jobs:
           cache: pnpm
       - if: steps.guard.outputs.enabled == 'true'
         run: pnpm install --frozen-lockfile
+      # wrangler.jsonc 不入库；从提交的占位模板生成，并注入真实生产资源 id。
+      # 在仓库 Variables 里配置 CF_PROD_D1_ID / CF_PROD_KV_ID（必填）、CF_PROD_DOMAIN（可选）。
+      - if: steps.guard.outputs.enabled == 'true'
+        name: Generate wrangler.jsonc
+        env:
+          CF_PROD_D1_ID: ${{ vars.CF_PROD_D1_ID }}
+          CF_PROD_KV_ID: ${{ vars.CF_PROD_KV_ID }}
+          CF_PROD_DOMAIN: ${{ vars.CF_PROD_DOMAIN }}
+        run: node .github/scripts/gen-wrangler.mjs
       # @cloudflare/vite-plugin 在 build 时根据 CLOUDFLARE_ENV 把对应环境的 bindings
       # 烘焙进 dist/server/wrangler.json；deploy 读取该产物，故环境在 build 时选定。
       - if: steps.guard.outputs.enabled == 'true'
