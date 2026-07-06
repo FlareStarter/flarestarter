@@ -49,13 +49,19 @@ pnpm install
 
 第一次会拉取较多包,耐心等它跑完。
 
-## 3. 配置环境变量
+## 3. 配置本地文件
 
-复制示例文件,得到你自己的本地配置 `.dev.vars`:
+复制两个示例文件,得到你自己的本地配置:
 
 ```bash
-cp .dev.vars.example .dev.vars
+cp wrangler.example.jsonc wrangler.jsonc   # Wrangler 配置(D1/KV 绑定等)
+cp .dev.vars.example .dev.vars             # 环境变量
 ```
+
+<Callout type="info">
+`wrangler.jsonc` 已被 git 忽略(会填入真实资源 id),仓库里提交的是占位模板
+`wrangler.example.jsonc`——本地开发直接用占位值即可,无需改动。
+</Callout>
 
 打开 `.dev.vars`,**唯一必须填**的是 `BETTER_AUTH_SECRET`(登录会话的加密密钥,需 32 位
 以上随机串)。生成一个:

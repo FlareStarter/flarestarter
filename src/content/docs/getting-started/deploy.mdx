@@ -140,6 +140,23 @@ Dashboard 启用 workers.dev 子域,DNS 传播可能要等 ~1 分钟。
 push 到 main 时以 `CLOUDFLARE_ENV=production` build 后自动部署 —— 需在仓库 Secrets 配好
 `CLOUDFLARE_API_TOKEN` 与 `CLOUDFLARE_ACCOUNT_ID`(未配则整个部署优雅跳过,不留红叉)。
 
+`wrangler.jsonc` 不入库(含真实资源 id),两个 workflow 都会从提交的占位模板
+`wrangler.example.jsonc` **在 CI 里重新生成**它:
+
+- `ci.yml`——直接 `cp wrangler.example.jsonc wrangler.jsonc`,占位值足够通过 build 检查
+  (CI 不部署,占位符只被烘焙进产物、不校验真实性),fork/PR 无需任何配置即可绿。
+- `deploy.yml`——跑 `.github/scripts/gen-wrangler.mjs`,把真实生产 id 注入 production 段。
+  这些 id 不是机密,用仓库 **Variables**(Settings → Secrets and variables → Actions →
+  Variables)传入:
+
+  | 名称 | 必填 | 说明 |
+  | --- | --- | --- |
+  | `CF_PROD_D1_ID` | ✅ | 生产 D1 的 `database_id` |
+  | `CF_PROD_KV_ID` | ✅ | 生产 KV 命名空间 `id` |
+  | `CF_PROD_DOMAIN` | 可选 | 自定义域名(如 `example.com`),设了才注入 `routes` |
+
+  新增 binding/vars 时记得同步改 `wrangler.example.jsonc`,别让模板与实际配置漂移。
+
 <Callout type="warn">
 CI 只做 **build + deploy,不跑数据库迁移**。所以有 schema 变更时,push 之前(或部署生效前)
 要**手动** `pnpm db:migrate:prod`,否则新代码上线会撞上缺表。Secret 同理——CI 不设 secret,
