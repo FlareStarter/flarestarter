@@ -49,8 +49,9 @@ R2 的绑定已在 `wrangler.jsonc` 配好,无需记 id(详见 [Storage](/docs/f
 ```bash
 # 必填 —— 会话加密密钥(openssl rand -base64 32 生成)
 npx wrangler secret put BETTER_AUTH_SECRET --env production
-# 邮件发送(Resend)
+# 邮件发送(Resend)—— 正式对外强烈建议配置,原因见下方 Callout
 npx wrangler secret put RESEND_API_KEY --env production
+npx wrangler secret put EMAIL_FROM --env production   # 发信地址,如 noreply@your-domain.com
 # 社交登录(可选,留空则按钮不显示)
 npx wrangler secret put GOOGLE_CLIENT_ID --env production
 npx wrangler secret put GOOGLE_CLIENT_SECRET --env production
@@ -64,6 +65,13 @@ npx wrangler secret put TURNSTILE_SECRET_KEY --env production
 # 可选:Sentry 错误上报(见 可观测性)
 npx wrangler secret put SENTRY_DSN --env production
 ```
+
+<Callout type="warn">
+`RESEND_API_KEY` 技术上可选(遵循「key 缺失 → 功能关闭」),但**正式生产强烈建议配置**:
+缺失时 `requireEmailVerification` 自动关闭——任何人可用他人邮箱注册、找回密码链接也发不出去
+(只进 `wrangler tail` 日志),存在账号归属风险。已部署构建缺 Resend 时,启动日志会打印
+`[env] ⚠️ RESEND_API_KEY is not set …` 告警提醒。配上后无需改代码,重新部署即自动恢复强验证。
+</Callout>
 
 <Callout type="info">
 不想逐条敲?`wrangler secret bulk` 支持一次性上传:把密钥写进一个 `KEY=VALUE` 文件

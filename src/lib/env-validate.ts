@@ -103,8 +103,21 @@ let checked = false
 export async function assertEnvOnce(): Promise<void> {
   if (checked) return
   const { env } = await import('./env')
-  const { errors, warnings } = validateEnv(env as unknown as Record<string, string | undefined>)
+  const raw = env as unknown as Record<string, string | undefined>
+  const { errors, warnings } = validateEnv(raw)
   for (const w of warnings) console.warn(`[env] ${w}`)
+  // Deployed build (staging/prod) without Resend: email verification is turned
+  // off (auth.server.ts `requireEmailVerification`) and password-reset links
+  // can't be delivered — an account-ownership gap. We degrade per the "missing
+  // key → feature off" convention, but never silently on a real deployment.
+  // `import.meta.env.PROD` is true for any built worker, false under `pnpm dev`.
+  if (import.meta.env.PROD && !raw.RESEND_API_KEY?.trim()) {
+    console.warn(
+      '[env] ⚠️ RESEND_API_KEY is not set in a deployed build — email verification is OFF ' +
+        'and password-reset emails cannot be delivered. Set RESEND_API_KEY (+ EMAIL_FROM) ' +
+        'for any real production deployment.',
+    )
+  }
   if (errors.length) {
     throw new Error(`Invalid environment configuration:\n${errors.map((e) => `  - ${e}`).join('\n')}`)
   }
