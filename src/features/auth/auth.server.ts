@@ -72,6 +72,17 @@ export function createAuth(authEnv: AuthEnv, db: DB) {
     rateLimit: { enabled: true, storage: 'database' },
     advanced: { ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] } },
     socialProviders: socialProviders(authEnv),
+    // Auto-link a social login to an existing account with the same email, but
+    // only for providers that return a *verified* email (GitHub, Google). This
+    // lets someone who first signed up with email/password also log in via
+    // GitHub instead of hitting "account not linked". Untrusted providers still
+    // require explicit linking, so an unverified email can't take over an account.
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ['github', 'google'],
+      },
+    },
     user: {
       deleteUser: {
         enabled: true,
