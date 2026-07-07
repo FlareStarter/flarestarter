@@ -162,7 +162,7 @@ export const en = {
     footerTagline: 'The open-source, Cloudflare-native SaaS starter.',
     footerProduct: 'Product', footerResources: 'Resources', footerLegal: 'Legal',
     footerPricing: 'Pricing', footerDocs: 'Docs', footerChangelog: 'Changelog',
-    footerGithub: 'GitHub',
+    footerGithub: 'GitHub', footerTelegram: 'Telegram',
     footerTerms: 'Terms', footerPrivacy: 'Privacy', footerLicense: 'License',
     footerRights: 'Apache 2.0 licensed.',
     footerWaitlist: 'Waitlist',

@@ -199,7 +199,14 @@ wrangler deploy
 
 ## 社区与贡献
 
+- **交流群**：加入 [Telegram 交流群](https://t.me/+coaN5Ihjte9jNzZl)，或扫码加入微信群「FlareStarter & 出海 SaaS 交流」，一起讨论使用与二次开发。
 - **遇到问题？** 本地运行或部署遇到问题，欢迎在 [GitHub Issues](https://github.com/FlareStarter/flarestarter/issues) 讨论。
+
+<p>
+  <img src=".github/assets/wechat-group.jpg" alt="微信群：FlareStarter & 出海 SaaS 交流" width="240">
+</p>
+
+> 微信群二维码定期更新；若已过期，请通过 Telegram 群或 GitHub Issues 联系我们。
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) —— 本地开发环境搭建、检查项与代码约定
 - [`CHANGELOG.md`](CHANGELOG.md) —— 版本变更记录
 

@@ -5,6 +5,7 @@ import { ThemeToggle } from '@/features/theme/theme-toggle'
 import { LangSwitch } from '@/features/i18n/lang-switch'
 
 const GITHUB_URL = 'https://github.com/flarestarter/flarestarter'
+const TELEGRAM_URL = 'https://t.me/+coaN5Ihjte9jNzZl'
 
 export function Footer({ theme }: { theme: 'light' | 'dark' }) {
   const { t } = useTranslation()
@@ -34,6 +35,7 @@ export function Footer({ theme }: { theme: 'light' | 'dark' }) {
         {/* Resources */}
         <FooterCol title={t('marketing.footerResources')}>
           <a className="foot-link" href={GITHUB_URL}>{t('marketing.footerGithub')}</a>
+          <a className="foot-link" href={TELEGRAM_URL} target="_blank" rel="noreferrer">{t('marketing.footerTelegram')}</a>
         </FooterCol>
 
         {/* Legal */}

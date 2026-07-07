@@ -203,7 +203,14 @@ Content lives in [`src/content/docs/`](src/content/docs/):
 
 ## Community & contributing
 
+- **Chat with us:** join the [Telegram group](https://t.me/+coaN5Ihjte9jNzZl), or scan the WeChat group QR below ("FlareStarter & 出海 SaaS 交流"), to discuss usage and building on top.
 - **Hit a snag?** For local-run or deployment issues, open a thread on [GitHub Issues](https://github.com/FlareStarter/flarestarter/issues).
+
+<p>
+  <img src=".github/assets/wechat-group.jpg" alt="WeChat group: FlareStarter & 出海 SaaS 交流" width="240">
+</p>
+
+> The WeChat QR is refreshed periodically; if it has expired, reach us via the Telegram group or GitHub Issues.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — local setup, the checks, conventions
 - [`CHANGELOG.md`](CHANGELOG.md) — notable changes
 
