@@ -214,6 +214,10 @@ wrangler deploy
 
 ❤️ 觉得这个项目有用？[赞助我们](https://flarestarter.com/sponsor)——你的头像会实时出现在官网赞助墙。
 
+## 友链
+
+  感谢 [LINUXDO](https://linux.do/) 社区提供的帮助与支持。
+
 ## 许可证
 
 本项目基于 [Apache License 2.0](LICENSE) 开源协议。Copyright 2026 FlareStarter。
