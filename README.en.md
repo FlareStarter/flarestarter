@@ -204,6 +204,7 @@ Content lives in [`src/content/docs/`](src/content/docs/):
 ## Community & contributing
 
 - **Chat with us:** join the [Telegram group](https://t.me/+coaN5Ihjte9jNzZl), or scan the WeChat group QR below ("FlareStarter & 出海 SaaS 交流"), to discuss usage and building on top.
+- **Follow the author:** [X (Twitter) @0xdinglv](https://x.com/0xdinglv), [Xiaohongshu (RED)](https://xhslink.com/m/19FI1djnItu) for updates and indie SaaS notes.
 - **Hit a snag?** For local-run or deployment issues, open a thread on [GitHub Issues](https://github.com/FlareStarter/flarestarter/issues).
 
 <p>
@@ -217,6 +218,12 @@ Content lives in [`src/content/docs/`](src/content/docs/):
 ## Sponsor
 
 ❤️ Find this useful? [Sponsor the project](https://flarestarter.com/sponsor) — your avatar shows up on the live sponsor wall.
+
+You can also tip the author by scanning the WeChat reward QR below:
+
+<p>
+  <img src=".github/assets/wechat-sponsor.jpg" alt="WeChat reward QR" width="240">
+</p>
 
 ## License
 

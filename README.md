@@ -200,6 +200,7 @@ wrangler deploy
 ## 社区与贡献
 
 - **交流群**：加入 [Telegram 交流群](https://t.me/+coaN5Ihjte9jNzZl)，或扫码加入微信群「FlareStarter & 出海 SaaS 交流」，一起讨论使用与二次开发。
+- **关注作者**：[X (Twitter) @0xdinglv](https://x.com/0xdinglv)、[小红书](https://xhslink.com/m/19FI1djnItu)，获取更新与出海 SaaS 分享。
 - **遇到问题？** 本地运行或部署遇到问题，欢迎在 [GitHub Issues](https://github.com/FlareStarter/flarestarter/issues) 讨论。
 
 <p>
@@ -214,9 +215,11 @@ wrangler deploy
 
 ❤️ 觉得这个项目有用？[赞助我们](https://flarestarter.com/sponsor)——你的头像会实时出现在官网赞助墙。
 
-## 友链
+也可以微信扫码赞赏，支持作者持续维护：
 
-  感谢 [LINUXDO](https://linux.do/) 社区提供的帮助与支持。
+<p>
+  <img src=".github/assets/wechat-sponsor.jpg" alt="微信赞赏码" width="240">
+</p>
 
 ## 许可证
 

@@ -148,7 +148,7 @@ export const zh: Dict = {
     footerTagline: '开源、Cloudflare 原生的 SaaS 起步模板。',
     footerProduct: '产品', footerResources: '资源', footerLegal: '法律',
     footerPricing: '定价', footerDocs: '文档', footerChangelog: '更新日志',
-    footerGithub: 'GitHub', footerTelegram: 'Telegram',
+    footerGithub: 'GitHub', footerTelegram: 'Telegram', footerX: 'X (Twitter)', footerXhs: '小红书',
     footerTerms: '服务条款', footerPrivacy: '隐私政策', footerLicense: '开源许可',
     footerRights: '基于 Apache 2.0 许可。',
     footerWaitlist: '候补名单',
