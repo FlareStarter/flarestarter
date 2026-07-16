@@ -207,7 +207,7 @@ wrangler deploy
   <img src=".github/assets/wechat-group.jpg" alt="微信群：FlareStarter & 出海 SaaS 交流" width="240">
 </p>
 
-> 微信群二维码定期更新；若已过期，请通过 Telegram 群或 GitHub Issues 联系我们。
+> 微信群二维码定期更新；若已过期，请加入 [Telegram 群](https://t.me/+coaN5Ihjte9jNzZl)，或添加作者微信 `hansenones`，拉你进群。
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) —— 本地开发环境搭建、检查项与代码约定
 - [`CHANGELOG.md`](CHANGELOG.md) —— 版本变更记录
 
