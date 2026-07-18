@@ -135,7 +135,7 @@ export const en = {
     sponsors: 'Sponsors', sponsorsSub: 'Every sponsorship, with wall visibility controls.',
     amount: 'Amount', message: 'Message', hide: 'Hide', unhide: 'Unhide', hiddenBadge: 'Hidden',
     sponsorsExport: 'Export CSV',
-    feedbackAdmin: 'Feedback', feedbackSub: 'Every submission, with status controls and replies.',
+    feedbackAdmin: 'All Feedback', feedbackSub: 'Every submission, with status controls and replies.',
     adminNotePlaceholder: 'Optional reply shown to the submitter', save: 'Save', saved: 'Saved.',
   },
   marketing: {

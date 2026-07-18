@@ -121,7 +121,7 @@ export const zh: Dict = {
     sponsors: '赞助', sponsorsSub: '全部赞助记录，可控制赞助墙展示。',
     amount: '金额', message: '留言', hide: '隐藏', unhide: '恢复', hiddenBadge: '已隐藏',
     sponsorsExport: '导出 CSV',
-    feedbackAdmin: '反馈', feedbackSub: '全部反馈，可流转状态并回复。',
+    feedbackAdmin: '全部反馈', feedbackSub: '全部反馈，可流转状态并回复。',
     adminNotePlaceholder: '可选回复，提交者可见', save: '保存', saved: '已保存。',
   },
   marketing: {
