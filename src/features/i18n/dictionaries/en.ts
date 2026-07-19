@@ -50,6 +50,7 @@ export const en = {
     navWorkspace: 'Workspace',
     collapseSidebar: 'Collapse sidebar', expandSidebar: 'Expand sidebar',
     navAccount: 'Account',
+    userMenuLabel: 'User menu',
     welcomeSub: "Here's your FlareStarter workspace.",
     quickActions: 'Quick actions',
     openAccount: 'Account settings',

@@ -7,7 +7,7 @@ import { ThemeToggle } from '@/features/theme/theme-toggle'
 import { LangSwitch } from '@/features/i18n/lang-switch'
 import { useTranslation } from '@/features/i18n/provider'
 import { PaymentFailedBanner } from '@/features/billing/components/payment-failed-banner'
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { UserMenu } from '@/components/app/user-menu'
 
 const rootRoute = getRouteApi('__root__')
 
@@ -18,12 +18,6 @@ export interface ShellUser {
   email: string
   role?: string | null
   image?: string | null
-}
-
-function initials(primary: string): string {
-  const parts = primary.trim().split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
-  return primary.slice(0, 2).toUpperCase()
 }
 
 /**
@@ -64,8 +58,6 @@ export function AppShell({
 
   // admin pages don't load billing, so the topbar badge shows the role there
   const onAdminPage = active.startsWith('admin-')
-  const primary = user.name || user.email
-  const secondary = user.email
 
   // `rail` = collapsed icon rail (desktop only; the mobile drawer is always full-width)
   const sidebar = (rail: boolean) => {
@@ -125,18 +117,7 @@ export function AppShell({
           </>
         )}
         <div className="flex-1" />
-        <div className={`flex items-center gap-2.5 border-t border-border pt-3 ${rail ? 'justify-center' : ''}`}>
-          <Avatar>
-            <AvatarImage src={user.image ?? undefined} alt={primary} />
-            <AvatarFallback>{initials(primary)}</AvatarFallback>
-          </Avatar>
-          {!rail && (
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] font-semibold text-foreground">{primary}</div>
-              <div className="truncate text-xs text-fg-3">{secondary}</div>
-            </div>
-          )}
-        </div>
+        <UserMenu user={user} rail={rail} />
       </>
     )
   }

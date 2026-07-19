@@ -37,6 +37,7 @@ export const zh: Dict = {
     navWorkspace: '工作区',
     collapseSidebar: '收起侧边栏', expandSidebar: '展开侧边栏',
     navAccount: '账号',
+    userMenuLabel: '用户菜单',
     welcomeSub: '这是你的 FlareStarter 工作区。',
     quickActions: '快捷操作',
     openAccount: '账号设置',
